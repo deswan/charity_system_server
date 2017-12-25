@@ -1,13 +1,23 @@
 module.exports = {
-    resultToObject(cols){
+    //{name:字段名,data:以逗号分隔的字符串} -> []
+    resultToObject(row,name,fieldNames){
         let result = [];
-        let names = cols.map(item=>{
-            return item.name
+        let dataLen;
+
+        let fieldDatas = {};
+        fieldNames.forEach((field,idx)=>{
+            fieldDatas[field] = row[field].split(',');
+            idx == 0 && (dataLen = fieldDatas[field].length)
+            delete row[field];
         })
-        let datas = cols.map(item=>{
-            return {
-                [item.name]:item.data.split(',')
-            };
-        })
+        for(let i=0;i<dataLen;i++){
+            let record = {}
+            fieldNames.forEach(name=>{
+                record[name] = fieldDatas[name][i];
+            })
+            result[i] = record;
+        }
+        row[name] = result;
+        return row;
     }
 }

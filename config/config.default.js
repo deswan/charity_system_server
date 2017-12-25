@@ -22,6 +22,12 @@ module.exports = appInfo => {
       database: 'gdut_db_project',
     }
   }
+  config.security = {
+      csrf: {
+        enable:false
+        // headerName: 'x-csrf-token', // 通过 header 传递 CSRF token 的默认字段为 x-csrf-token
+      },
+  }
 
   return config;
 };
