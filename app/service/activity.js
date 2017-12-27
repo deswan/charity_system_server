@@ -4,18 +4,18 @@ class ActivityService extends Service {
   async getList({ page, tag, pageSize = 20 }) {
     let results = { page };
     let activityId = [];
-    if(tag){
+    if (tag) {
       activityId = await this.app.mysql.query(`select
         distinct activity_tag.activity_id as id
         from tag,activity_tag
         where tag.id in (?) and
         tag.id = activity_tag.tag_id
        `, [tag]);
-       activityId = activityId.map(item=>{
-         return item.id
-       })
+      activityId = activityId.map(item => {
+        return item.id
+      })
     }
-    
+
     let rows = await this.app.mysql.query(`select
     activity.id,
     organization.id as orgId,
@@ -28,7 +28,7 @@ class ActivityService extends Service {
     activity.location,activity.status,activity.img
       from activity,organization,tag,activity_tag
       where status in (0,1) and
-      ${activityId.length ? `activity.id in (${activityId}) and` : '' }
+      ${activityId.length ? `activity.id in (${activityId}) and` : ''}
       activity.organization_id = organization.id and
       activity.id = activity_tag.activity_id and
       tag.id = activity_tag.tag_id
@@ -39,11 +39,11 @@ class ActivityService extends Service {
 
     results.rows = rows.map(item => {
       item.tags = this.ctx.helper.resultToObject([{
-        name:'tagId',
-        data:item.tagId
-      },{
-        name:'tagName',
-        data:item.tagName
+        name: 'tagId',
+        data: item.tagId
+      }, {
+        name: 'tagName',
+        data: item.tagName
       }])
       delete item.tagId;
       delete item.tagName;
@@ -53,16 +53,16 @@ class ActivityService extends Service {
     let total = await this.app.mysql.query(`select 
       count(*) as total
       from activity
-      where ${activityId.length ? `activity.id in (${activityId}) and` : '' }
+      where ${activityId.length ? `activity.id in (${activityId}) and` : ''}
       status in (0,1)
      `);
-     total = total[0].total;
+    total = total[0].total;
 
-     results.total = total;
+    results.total = total;
 
     return results;
   }
-  async getReviewList(limit=8){
+  async getReviewList(limit = 8) {
     return await this.app.mysql.query(`select
      id, name, img
       from activity
@@ -70,6 +70,56 @@ class ActivityService extends Service {
       ORDER BY start_time DESC
       limit ?
      `, [limit]);
+  }
+  async getActivityById(id) {
+    let data = await this.app.mysql.query(`
+    select
+      activity.id,
+      DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
+      activity.status,
+      activity.name,
+      DATE_FORMAT(activity.create_time,'%Y-%m-%d') as create_time,
+      activity.location,
+      activity.recipient_number,
+      activity.recruit_number,
+      organization.id as orgId,
+      organization.name as orgName,
+      organization.slogan as  orgSlogan,
+      GROUP_CONCAT(tag.id) as tagId,
+      GROUP_CONCAT(tag.name) as tagName
+      from activity LEFT JOIN organization ON activity.organization_id = organization.id
+      LEFT JOIN activity_tag ON activity.id = activity_tag.activity_id
+      LEFT JOIN tag on activity_tag.tag_id = tag.id
+      where activity.id = ?
+      group by activity.id,
+      activity.start_time,
+      activity.status,
+      activity.name,
+      activity.create_time,
+      activity.location,
+      activity.recipient_number,
+      activity.recruit_number,
+      organization.id,
+      organization.name,
+      organization.slogan`, [id]);
+
+      data = data[0]
+
+    let volunteers = await this.app.mysql.query(`select
+      volunteer.id,
+      volunteer.name,
+      volunteer.portrait,
+      volunteer_activity.comment,
+      volunteer_activity.photos,
+      volunteer_activity.score,
+      volunteer_activity.score_time
+    from volunteer_activity INNER JOIN volunteer ON volunteer_activity.volunteer_id=volunteer.id
+    where volunteer_activity.activity_id = ? AND
+      volunteer_activity.status = 2`,[id])
+    
+    data = this.ctx.helper.resultToObject(data,'tags',['tagId','tagName']);
+    data.volunteers = volunteers;
+    return this.ctx.body = data;
   }
 }
 

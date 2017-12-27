@@ -12,4 +12,6 @@ module.exports = app => {
   router.post('/api/registry', controller.user.registry);
   router.post('/api/login', controller.user.login);
   router.post('/api/uploadPhoto', controller.user.uploadPhoto);
+  router.get('/api/getActivityById', controller.home.getActivityById);
+  router.get('/api/getOrgById', controller.home.getOrgById);
 };

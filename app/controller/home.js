@@ -23,6 +23,22 @@ class HomeController extends Controller {
     let result = await this.service.org.getList({ page, tag });
     return this.ctx.body = result;
   }
+  async getActivityById() {
+    let { id } = this.ctx.query;
+    if(!id){
+      throw new Error('id is required');
+    }
+    let result = await this.service.activity.getActivityById(id);
+    return this.ctx.body = result;
+  }
+  async getOrgById() {
+    let { id } = this.ctx.query;
+    if(!id){
+      throw new Error('id is required');
+    }
+    let result = await this.service.org.getOrgById(id);
+    return this.ctx.body = result;
+  }
 }
 
 module.exports = HomeController;
