@@ -4,13 +4,20 @@ class OrgService extends Service {
   async getList({ pageSize = 10, page, tag }) {
     let result = { page };
     let orgId = [];
-    if (tag && tag.length) {
-      orgId = await this.app.mysql.query(`select
+    if (tag) {
+      let orgs = await this.app.mysql.query(`select
         distinct organization_id as id
         from organization_tag
-        ${tag.length > 1 ? `where tag_id in (?)` : `where tag_id = ?`}
+        ${tag.length ? `where tag_id in (?)` : ''}
        `, [tag]);
-      orgId = orgId.map(item => {
+       if (!orgs.length) {
+        Object.assign(results, {
+          total: 0,
+          rows: []
+        })
+        return results;
+      }
+      orgId = orgs.map(item => {
         return item.id
       })
     }
@@ -21,12 +28,12 @@ class OrgService extends Service {
     GROUP_CONCAT(tag.name) as tagName
   from organization LEFT JOIN organization_tag ON organization.id = organization_tag.organization_id
     INNER JOIN tag ON organization_tag.tag_id = tag.id
-    ${orgId.length ? orgId.length > 1 ? `where organization.id in (${orgId})` : `where organization.id = ${orgId}` : ''}
+    ${orgId.length ?  `where organization.id in (${orgId})` : ''}
     GROUP BY organization.id,organization.name,organization.slogan
     limit ? offset ?
      `, [pageSize, pageSize * (page - 1)]);
 
-    limitedOrgId = rows.map(item => {
+    let limitedOrgId = rows.map(item => {
       return item.id
     })
 

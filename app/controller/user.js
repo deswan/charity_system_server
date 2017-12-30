@@ -26,7 +26,8 @@ class UserController extends Controller {
       this.ctx.logger.warn(err.errors);
       return this.ctx.body = err.errors[0];
     }
-    let result = this.service.user.login(this.ctx.request.body);
+    let result = await this.service.user.login(this.ctx.request.body);
+    console.log('login:', result)
     if (result) {
       this.ctx.session.uid = result.id;
       return this.ctx.body = { code: 0 };
@@ -102,6 +103,25 @@ class UserController extends Controller {
   }
   async getInformation() {
 
+  }
+  async userOrgStatus() {
+
+  }
+  async getUser() {
+    let id = this.ctx.session.uid;
+    if (!id) {
+      return this.ctx.body = { status: 1 } //未登陆
+    } else {
+      let ret = await this.app.mysql.get('volunteer', { id })
+      delete ret.password;
+      let orgs = await this.app.mysql.query(`
+      select organization.id, organization.name
+      from  volunteer_organization INNER JOIN organization ON organization.id = volunteer_organization.organization_id
+      where volunteer_organization.status = 2 and
+      volunteer_organization.volunteer_id = ?
+      `, [id])
+      return this.ctx.body = { status: 0, data: ret, orgs };
+    }
   }
 }
 

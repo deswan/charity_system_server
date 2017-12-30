@@ -5,8 +5,12 @@ const Controller = require('egg').Controller;
 class HomeController extends Controller {
   async getActList() {
     let { page = 1, tag = null } = this.ctx.query;
-    (typeof tag == 'string') && (tag = tag.split(','));
+    tag && (tag = tag.split(','));
     let result = await this.service.activity.getList({ page, tag });
+    return this.ctx.body = result;
+  }
+  async getCurrentActTags(){
+    let result = await this.service.tag.getCurrent();
     return this.ctx.body = result;
   }
   async getActReviewList() {
@@ -21,6 +25,10 @@ class HomeController extends Controller {
     let { page = 1, tag = null } = this.ctx.query;
     (typeof tag == 'string') && (tag = tag.split(','));
     let result = await this.service.org.getList({ page, tag });
+    return this.ctx.body = result;
+  }
+  async getOrgTags(){
+    let result = await this.service.tag.getOrg();
     return this.ctx.body = result;
   }
   async getActivityById() {

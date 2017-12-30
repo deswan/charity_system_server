@@ -3,63 +3,59 @@ const Service = require('egg').Service;
 class ActivityService extends Service {
   async getList({ page, tag, pageSize = 20 }) {
     let results = { page };
-    let activityId = [];
+    let tagActivityId = [];
     if (tag) {
-      activityId = await this.app.mysql.query(`select
-        distinct activity_tag.activity_id as id
-        from tag,activity_tag
-        where tag.id in (?) and
-        tag.id = activity_tag.tag_id
+      let activities = await this.app.mysql.query(`select
+        distinct activity_id as id
+        from activity_tag
+        where tag_id in (?)
        `, [tag]);
-      activityId = activityId.map(item => {
+      if (!activities.length) {
+        Object.assign(results, {
+          total: 0,
+          rows: []
+        })
+        return results;
+      }
+      tagActivityId = activities.map(item => {
         return item.id
       })
     }
 
     let rows = await this.app.mysql.query(`select
-    activity.id,
-    organization.id as orgId,
-    activity.name,
-    organization.name as orgName,
-    organization.logo as orgImg,
-    GROUP_CONCAT(tag.id) as tagId,
-    GROUP_CONCAT(tag.name) as tagName,
-    DATE_FORMAT(activity.start_time,'%Y-%m-%d %h:%i') as start_time,
-    activity.location,activity.status,activity.img
-      from activity,organization,tag,activity_tag
-      where status in (0,1) and
-      ${activityId.length ? `activity.id in (${activityId}) and` : ''}
-      activity.organization_id = organization.id and
-      activity.id = activity_tag.activity_id and
-      tag.id = activity_tag.tag_id
-      GROUP BY activity.id,organization.id,activity.name,organization.name,organization.logo,activity.start_time,activity.location,activity.status,activity.img,activity.create_time
-      ORDER BY activity.create_time DESC
-      limit ? offset ?
-     `, [pageSize, pageSize * (page - 1)]);
+      activity.id,
+      organization.id as orgId,
+      activity.name,
+      organization.name as orgName,
+      organization.logo as orgImg,
+      GROUP_CONCAT(tag.id) as tagId,
+      GROUP_CONCAT(tag.name) as tagName,
+      DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
+      activity.location,activity.status,activity.img
+        from activity,organization,tag,activity_tag
+        where status in (0,1) and
+        ${tagActivityId.length ? `activity.id in (${tagActivityId}) and` : ''}
+        activity.organization_id = organization.id and
+        activity.id = activity_tag.activity_id and
+        tag.id = activity_tag.tag_id
+        GROUP BY activity.id,organization.id,activity.name,organization.name,organization.logo,activity.start_time,activity.location,activity.status,activity.img,activity.create_time
+        ORDER BY activity.create_time DESC
+        limit ? offset ?
+       `, [pageSize, pageSize * (page - 1)]);
 
     results.rows = rows.map(item => {
-      item.tags = this.ctx.helper.resultToObject([{
-        name: 'tagId',
-        data: item.tagId
-      }, {
-        name: 'tagName',
-        data: item.tagName
-      }])
-      delete item.tagId;
-      delete item.tagName;
+      this.ctx.helper.resultToObject(item, 'tags', ['tagId', 'tagName'])
       return item;
     })
 
     let total = await this.app.mysql.query(`select 
-      count(*) as total
-      from activity
-      where ${activityId.length ? `activity.id in (${activityId}) and` : ''}
-      status in (0,1)
-     `);
+       count(*) as total
+       from activity
+       where ${tagActivityId.length ? `activity.id in (${tagActivityId}) and` : ''}
+      status in (0,1) 
+       `);
     total = total[0].total;
-
     results.total = total;
-
     return results;
   }
   async getReviewList(limit = 8) {
@@ -76,13 +72,16 @@ class ActivityService extends Service {
     select
       activity.id,
       DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
+      DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time,
       activity.status,
       activity.name,
+      activity.img,
       DATE_FORMAT(activity.create_time,'%Y-%m-%d') as create_time,
       activity.location,
       activity.recipient_number,
       activity.recruit_number,
       organization.id as orgId,
+      organization.logo as orgImg,
       organization.name as orgName,
       organization.slogan as  orgSlogan,
       GROUP_CONCAT(tag.id) as tagId,
@@ -93,7 +92,9 @@ class ActivityService extends Service {
       where activity.id = ?
       group by activity.id,
       activity.start_time,
+      activity.end_time,
       activity.status,
+      activity.img,
       activity.name,
       activity.create_time,
       activity.location,
@@ -101,11 +102,11 @@ class ActivityService extends Service {
       activity.recruit_number,
       organization.id,
       organization.name,
+      organization.logo,
       organization.slogan`, [id]);
+    data = data[0]
 
-      data = data[0]
-
-    let volunteers = await this.app.mysql.query(`select
+    let comments = await this.app.mysql.query(`select
       volunteer.id,
       volunteer.name,
       volunteer.portrait,
@@ -115,10 +116,18 @@ class ActivityService extends Service {
       volunteer_activity.score_time
     from volunteer_activity INNER JOIN volunteer ON volunteer_activity.volunteer_id=volunteer.id
     where volunteer_activity.activity_id = ? AND
-      volunteer_activity.status = 2`,[id])
-    
-    data = this.ctx.helper.resultToObject(data,'tags',['tagId','tagName']);
-    data.volunteers = volunteers;
+      volunteer_activity.status = 2 and
+      volunteer_activity.isScored = 1`, [id])
+      data.comments = comments;
+
+    let sponsors = await this.app.mysql.select('sponsor', {
+      where: { status: 2 }, // WHERE 条件
+      columns: ['name', 'amount', 'logo'], // 要查询的表字段
+      orders: [['create_time', 'desc']],
+    })
+    data.sponsors = sponsors;
+
+    data = this.ctx.helper.resultToObject(data, 'tags', ['tagId', 'tagName']);
     return this.ctx.body = data;
   }
 }
