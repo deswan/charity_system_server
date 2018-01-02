@@ -1,8 +1,6 @@
 const Service = require('egg').Service;
 const crypto = require('crypto');
 class UserService extends Service {
-  async getUserStatus({ page, tag, pageSize = 20 }) {
-  }
   async registry({
     avatar, name, gender, birthday, native, id_card, email, phone, password
   }) {
@@ -15,15 +13,22 @@ class UserService extends Service {
       password: hmac.digest('hex')
     });
   }
-  async login({
-    emailOrPhone, password, field
-  }) {
+  async login(account, password) {
     const hmac = crypto.createHmac('sha256', this.config.keys);
     hmac.update(password);
-    return  await this.app.mysql.get('volunteer', {
-      [field]:emailOrPhone,
-      password:hmac.digest('hex')
+    let psw = hmac.digest('hex')
+    let emailRet = await this.app.mysql.get('volunteer', {
+      email: account,
+      password: psw
     });
+    if (emailRet) {
+      return emailRet;
+    }
+    let phoneRet = await this.app.mysql.get('volunteer', {
+      phone: account,
+      password: psw
+    });
+    return phoneRet;
   }
 }
 

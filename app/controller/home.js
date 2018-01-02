@@ -22,8 +22,8 @@ class HomeController extends Controller {
     return this.ctx.body = result;
   }
   async getOrgList() {
-    let { page = 1, tag = null } = this.ctx.query;
-    (typeof tag == 'string') && (tag = tag.split(','));
+    let { page = 1, tag } = this.ctx.query;
+    tag && (tag = tag.split(','))
     let result = await this.service.org.getList({ page, tag });
     return this.ctx.body = result;
   }
@@ -43,8 +43,10 @@ class HomeController extends Controller {
     let { id } = this.ctx.query;
     if(!id){
       throw new Error('id is required');
-    }
+    } 
     let result = await this.service.org.getOrgById(id);
+    result.userStatus = await this.service.org.getOrgUserRelation(id,this.ctx.session.id);
+
     return this.ctx.body = result;
   }
 }

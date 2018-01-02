@@ -10,7 +10,7 @@ class OrgService extends Service {
         from organization_tag
         ${tag.length ? `where tag_id in (?)` : ''}
        `, [tag]);
-       if (!orgs.length) {
+      if (!orgs.length) {
         Object.assign(results, {
           total: 0,
           rows: []
@@ -21,15 +21,17 @@ class OrgService extends Service {
         return item.id
       })
     }
-    let rows = await this.app.mysql.query(`select organization.id,
+    let rows = await this.app.mysql.query(`select 
+    organization.id,
+    organization.logo,
     organization.name,
     organization.slogan,
     GROUP_CONCAT(tag.id) as tagId,
     GROUP_CONCAT(tag.name) as tagName
   from organization LEFT JOIN organization_tag ON organization.id = organization_tag.organization_id
     INNER JOIN tag ON organization_tag.tag_id = tag.id
-    ${orgId.length ?  `where organization.id in (${orgId})` : ''}
-    GROUP BY organization.id,organization.name,organization.slogan
+    ${orgId.length ? `where organization.id in (${orgId})` : ''}
+    GROUP BY organization.id,organization.name,organization.slogan,organization.logo
     limit ? offset ?
      `, [pageSize, pageSize * (page - 1)]);
 
@@ -92,42 +94,28 @@ class OrgService extends Service {
     organization.name,
     organization.logo,
     organization.slogan`, [id]);
+
+    if (!org.length) {
+      throw new Error('orgId is incorrect');
+      return;
+    }
+
     org = org[0];
 
     let volCount = await this.app.mysql.query(`select 
-     count(*) as vol_count
-   from organization LEFT JOIN volunteer_organization ON organization.id = volunteer_organization.organization_id
-   where organization.id = ? and
-   volunteer_organization.status = 2
-   `, [id]);
-    volCount = volCount && volCount[0].vol_count || 0;
+    count(*) as vol_count
+  from volunteer_organization
+  where organization_id = ? and status = 2
+  `, [id]);
+    org.vol_count = volCount && volCount[0].vol_count || 0;
+
 
     let recipientCount = await this.app.mysql.query(`select
-   SUM(recipient_number) as recipient_count
- from organization LEFT JOIN activity ON organization.id = activity.organization_id
- where organization.id = ? and
-   activity.status = 3`, [id]);
-    recipientCount = recipientCount && recipientCount[0].recipient_count || 0;
-
-    let userStatus;
-    if (!this.ctx.session.uid) {
-      userStatus = 'NO_LOGIN'
-    } else {
-      let ret = await this.app.mysql.get('volunteer_organization', {
-        volunteer_id: this.ctx.session.uid,
-        organization_id: id,
-        status: 2
-      })
-      if (ret) {
-        userStatus = 'JOINED'
-      } else {
-        userStatus = 'NO_JOIN'
-      }
-    }
-
-    org.volCount = volCount;
-    org.recipientCount = recipientCount;
-    org.userStatus = userStatus;
+  SUM(recipient_number) as recipient_count
+  from activity
+  where organization_id = ? and
+  status = 3`, [id]);
+    org.recipient_count = recipientCount && recipientCount[0].recipient_count || 0;
 
     let currentActs = await this.app.mysql.query(`
     select id,name,location,img,
@@ -140,17 +128,17 @@ class OrgService extends Service {
 
     let previousActs = await this.app.mysql.query(`
     select
-  activity.id,
-  activity.name,
-  group_concat(tag.id) as tagId,
-  group_concat(tag.name) as tagName
-  from activity LEFT JOIN activity_tag ON activity.id = activity_tag.activity_id
-LEFT JOIN tag ON tag.id=activity_tag.tag_id
-where activity.status = 3 and
-activity.organization_id = ?
-GROUP BY activity.id,activity.name,start_time
-ORDER BY start_time DESC
-limit 10
+    activity.id,
+    activity.name,
+    group_concat(tag.id) as tagId,
+    group_concat(tag.name) as tagName
+    from activity LEFT JOIN activity_tag ON activity.id = activity_tag.activity_id
+    LEFT JOIN tag ON tag.id=activity_tag.tag_id
+    where activity.status = 3 and
+    activity.organization_id = ?
+    GROUP BY activity.id,activity.name,start_time
+    ORDER BY start_time DESC
+    limit 10
     `, [id])
 
     if (previousActs) {
@@ -158,32 +146,48 @@ limit 10
         return item.id;
       })
 
+      //注意photos其中有的为null的情况
       let previousActsDetail = await this.app.mysql.query(`
       select
-      activity.id,
+      activity_id as id,
       AVG(score) as rate,
       GROUP_CONCAT(photos) as photos
-    from activity LEFT JOIN volunteer_activity ON activity.id = volunteer_activity.activity_id
-  where ${actIds.length > 1 ? 'activity.id in (?)' : 'activity.id = ?'}
-  GROUP BY activity.id
+      from volunteer_activity
+      where activity_id in (?)
+      GROUP BY activity_id
       `, [actIds])
 
       previousActs.map(act => {
         previousActsDetail.some(item => {
           if (act.id == item.id) {
             act.rate = item.rate || 0;
-            act.photos = item.photos && item.photos.split(',').slice(0, 4).join(',');
+            act.photos = item.photos && item.photos.split(',').slice(0, 4).join(','); //限制4张图片
             return true;
           }
         })
-        console.log()
-        return this.ctx.helper.resultToObject(act,'tags',['tagId','tagName'])
+        return this.ctx.helper.resultToObject(act, 'tags', ['tagId', 'tagName'])
       })
     }
     org.currentActs = currentActs;
     org.previousActs = previousActs;
-    org = this.ctx.helper.resultToObject(org,'tags',['tagId','tagName'])
+    org = this.ctx.helper.resultToObject(org, 'tags', ['tagId', 'tagName'])
     return org;
+  }
+  async getOrgUserRelation(orgId, uid) {
+    if (!uid) {
+      return 'NO_LOGIN'
+    } else {
+      let ret = await this.app.mysql.get('volunteer_organization', {
+        volunteer_id: uid,
+        organization_id: orgId,
+        status: 2
+      })
+      if (ret) {
+        return 'JOINED'
+      } else {
+        return 'NO_JOIN'
+      }
+    }
   }
 }
 
