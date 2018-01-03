@@ -19,6 +19,9 @@ module.exports = app => {
   router.get('/api/getOrgTags', controller.home.getOrgTags);
   router.get('/api/getMyActs', controller.user.getMyActs);
   router.get('/api/getMyOrgById', controller.user.getMyOrgById);
-
+  
   router.get('/api/getActListBelongToOrg', controller.admin.getActListBelongToOrg);
+  router.post('/api/createAct', controller.admin.createAct);
+  router.get('/api/getTodos', controller.admin.getTodos);
+  router.get('/api/getVolList', controller.admin.getVolList);
 };

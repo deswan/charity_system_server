@@ -251,8 +251,15 @@ class ActivityService extends Service {
     });
   }
   async getActListBelongToOrg({
-    orgId, name, startTime, endTime, status,pageSize = 10,page = 1
+    orgId, name, startTime, endTime, status, pageSize = 10, page = 1
   }) {
+    if(name){
+      let nameArr = name.split('');
+      nameArr.push('%');
+      nameArr.unshift('%');
+      name = nameArr.join('')
+    }
+    status == -1 && (status = [0, 1, 2, 3, 4]);
     let results = {};
     let rows = await this.app.mysql.query(`select
     activity.id,
@@ -273,6 +280,9 @@ class ActivityService extends Service {
       activity.id = activity_tag.activity_id and
       tag.id = activity_tag.tag_id and
       activity.organization_id = ?
+      ${startTime ? `and activity.start_time >= ${this.app.mysql.escape(startTime)}` : ''}
+      ${endTime ? `and activity.end_time <= ${this.app.mysql.escape(endTime)}` : ''}
+      ${name ? `and activity.name like ${this.app.mysql.escape(name)}` : ''}
 
       GROUP BY 
       activity.id,
@@ -287,7 +297,7 @@ class ActivityService extends Service {
       
       ORDER BY activity.create_time DESC
       limit ? offset ?
-     `, [status,orgId, pageSize, pageSize * (page - 1)]);
+     `, [status, orgId, pageSize, pageSize * (page - 1)]);
 
 
     if (rows.length) {
@@ -304,11 +314,28 @@ class ActivityService extends Service {
       GROUP BY activity_id
        `, [actsId]);
 
+      let sponsorData = await this.app.mysql.query(`select
+      activity_id as id,
+     sum(amount) as amount
+    from sponsor
+    where activity_id in (?) AND
+      status = 2
+      group by activity_id
+       `, [actsId]);
+
       rows.forEach(item => {
-        volData.forEach(vol=>{
-          if(item.id === vol.id){
+        item.vol_count = 0;
+        item.score_count = 0;
+        item.sponsor_amount = 0;
+        volData.forEach(vol => {
+          if (item.id === vol.id) {
             item.vol_count = vol.vol_count;
             item.score_count = vol.score_count;
+          }
+        })
+        sponsorData.forEach(vol => {
+          if (item.id === vol.id) {
+            item.sponsor_amount = vol.sponsor_amount;
           }
         })
       })
@@ -331,6 +358,26 @@ class ActivityService extends Service {
     total = total[0].total;
     results.total = total;
     return results;
+  }
+  async create({ orgId, avatar, startDate, endDate, location, name, recipient_number, tags }) {
+
+  }
+  async getApplingByOrg(orgId) {
+    return await this.app.mysql.query(`select
+    volunteer_activity.id as item_id,
+    activity.id as act_id,
+    activity.name as act_name,
+    DATE_FORMAT(volunteer_activity.create_time,'%Y-%m-%d %H:%i:%s') as create_time,
+    volunteer.id,
+    volunteer.name,
+    volunteer.portrait,
+    volunteer_activity.application_text,
+    1 as type
+    from activity,volunteer_activity,volunteer
+  where activity.id = volunteer_activity.activity_id AND
+    volunteer.id = volunteer_activity.volunteer_id AND
+    activity.organization_id = ? AND
+    volunteer_activity.status  = 0`, [orgId])
   }
 }
 

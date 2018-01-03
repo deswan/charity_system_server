@@ -17,7 +17,7 @@ module.exports = appInfo => {
       // 用户名
       user: 'root',
       // 密码
-      password: '123456',
+      password: 'deswan',
       // 数据库名
       database: 'gdut_db_project',
     }

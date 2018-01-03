@@ -189,6 +189,22 @@ class OrgService extends Service {
       }
     }
   }
+  async getApplingByOrg(orgId) {
+    return await this.app.mysql.query(`
+    select
+    volunteer_organization as item_id,
+    DATE_FORMAT(volunteer_organization.create_time,'%Y-%m-%d %H:%i:%s') as create_time,
+    volunteer.id,
+    volunteer.name,
+    volunteer.portrait,
+    volunteer_organization.application_text,
+    0 as type
+    from volunteer_organization,volunteer
+  where volunteer_organization.volunteer_id = volunteer.id AND 
+    organization_id in (?) AND
+    status  = 0
+    `,[orgId])
+  }
 }
 
 module.exports = OrgService;
