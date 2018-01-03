@@ -132,7 +132,7 @@ class ActivityService extends Service {
   }
 
   async getMyActsByStatus({
-    uid, page, status,pageSize = 15
+    uid, page, status, pageSize = 15
   }) {
     let results = {};
     let rows = await this.app.mysql.query(`select
@@ -193,7 +193,7 @@ class ActivityService extends Service {
     results.total = total;
     return results;
   }
-  async getMyActsByOrg(orgId,uid) {
+  async getMyActsByOrg(orgId, uid) {
     let rows = await this.app.mysql.query(`select
     activity.id,
     activity.name,
@@ -232,7 +232,7 @@ class ActivityService extends Service {
       activity.img
       
       ORDER BY activity.start_time DESC
-     `, [orgId,uid]);
+     `, [orgId, uid]);
 
     // let total = await this.app.mysql.query(`select 
     //    count(*) as total
@@ -251,8 +251,8 @@ class ActivityService extends Service {
     });
   }
   async getActListBelongToOrg({
-    name,startTime,endTime,status
-  }){
+    orgId, name, startTime, endTime, status,pageSize = 10,page = 1
+  }) {
     let results = {};
     let rows = await this.app.mysql.query(`select
     activity.id,
@@ -264,13 +264,12 @@ class ActivityService extends Service {
     GROUP_CONCAT(tag.id) as tagId,
     GROUP_CONCAT(tag.name) as tagName,
     DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
-    DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time
-    DATE_FORMAT(activity.create_time,'%Y-%m-%d %H:%m:$s') as create_time
+    DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time,
+    DATE_FORMAT(activity.create_time,'%Y-%m-%d %H:%i:%s') as create_time
     
-      from activity,tag,activity_tag,
+      from activity,tag,activity_tag
 
-      where activity.status in (${status}) and
-      activity.organization_id = organization.id and
+      where activity.status in (?) and
       activity.id = activity_tag.activity_id and
       tag.id = activity_tag.tag_id and
       activity.organization_id = ?
@@ -283,24 +282,51 @@ class ActivityService extends Service {
       activity.create_time,
       activity.location,
       activity.status,
-      activity.img
+      activity.img,
       activity.recipient_number
       
       ORDER BY activity.create_time DESC
       limit ? offset ?
-     `, [uid, pageSize, pageSize * (page - 1)]);
+     `, [status,orgId, pageSize, pageSize * (page - 1)]);
 
-    results.rows = rows.map(item => {
-      this.ctx.helper.resultToObject(item, 'tags', ['tagId', 'tagName'])
-      return item;
-    })
+
+    if (rows.length) {
+      let actsId = rows.map(item => {
+        return item.id;
+      })
+      let volData = await this.app.mysql.query(`SELECT
+      activity_id as id,
+      count(*) as vol_count,
+      sum(isScored) as score_count
+      from volunteer_activity
+      where activity_id in (?) AND
+        status = 2
+      GROUP BY activity_id
+       `, [actsId]);
+
+      rows.forEach(item => {
+        volData.forEach(vol=>{
+          if(item.id === vol.id){
+            item.vol_count = vol.vol_count;
+            item.score_count = vol.score_count;
+          }
+        })
+      })
+
+      rows = rows.map(item => {
+        this.ctx.helper.resultToObject(item, 'tags', ['tagId', 'tagName'])
+        return item;
+      })
+    }
+
+    results.rows = rows;
 
     let total = await this.app.mysql.query(`select 
        count(*) as total
        from activity
        where activity.status in (${status}) and
        activity.organization_id = ?
-       `, uid);
+       `, [orgId]);
 
     total = total[0].total;
     results.total = total;
