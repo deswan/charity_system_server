@@ -24,4 +24,5 @@ module.exports = app => {
   router.post('/api/createAct', controller.admin.createAct);
   router.get('/api/getTodos', controller.admin.getTodos);
   router.get('/api/getVolList', controller.admin.getVolList);
+  router.get('/api/getAllTags', controller.admin.getAllTags);
 };

@@ -359,9 +359,32 @@ class ActivityService extends Service {
     results.total = total;
     return results;
   }
+  //创建活动
   async create({ orgId, avatar, startDate, endDate, location, name, recipient_number, tags }) {
-
+    await this.app.mysql.beginTransactionScope(async conn => {
+      let ret = await conn.insert('activity',{
+        img:avatar,
+        start_time:startDate,
+        end_time:endDate,
+        location,
+        name,
+        recipient_number,
+        organization_id:orgId,
+        status:0,
+        create_time:this.app.mysql.literals.now
+      })
+      let promises = []
+      tags.split(',').forEach(tagId=>{
+        promises.push(this.app.mysql.insert('activity_tag',{
+          activity_id:ret.insertId,
+          tag_id:tagId
+        }))
+      })
+      await Promise.all(promises)
+      return { success: true };
+    }, this.ctx);
   }
+  //获取正在申请中的活动
   async getApplingByOrg(orgId) {
     return await this.app.mysql.query(`select
     volunteer_activity.id as item_id,

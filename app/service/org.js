@@ -192,7 +192,7 @@ class OrgService extends Service {
   async getApplingByOrg(orgId) {
     return await this.app.mysql.query(`
     select
-    volunteer_organization as item_id,
+    volunteer_organization.organization_id as item_id,
     DATE_FORMAT(volunteer_organization.create_time,'%Y-%m-%d %H:%i:%s') as create_time,
     volunteer.id,
     volunteer.name,

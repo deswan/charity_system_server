@@ -11,10 +11,10 @@ class AdminController extends Controller {
     return this.ctx.body = ret;
   }
   async createAct() {
-    let {orgId,avatar,startDate,endDate,location,name,recipient_number,tags} = this.ctx.query;
+    let {orgId,avatar,startDate,endDate,location,name,recipient_number,tags} = this.ctx.request.body;
     //todo:uid检查
     let ret = await this.service.activity.create({orgId,avatar,startDate,endDate,location,name,recipient_number,tags});
-    return this.ctx.body = ret;
+    return this.ctx.body = {code:0};
   }
   async getVolList(){
     let {orgId,name} = this.ctx.query;
@@ -81,6 +81,9 @@ class AdminController extends Controller {
       item.id = idx;
     })
     return this.ctx.body = ret;
+  }
+  async getAllTags(){
+    return this.ctx.body = await this.service.tag.getAllTags();
   }
 }
 

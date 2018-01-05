@@ -15,6 +15,9 @@ class TagService extends Service {
         from organization_tag inner join tag on organization_tag.tag_id = tag.id
        `);
     }
+    async getAllTags(){
+        return await this.app.mysql.select('tag')
+    }
 }
 
 module.exports = TagService;
