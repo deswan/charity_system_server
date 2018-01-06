@@ -85,6 +85,38 @@ class AdminController extends Controller {
   async getAllTags(){
     return this.ctx.body = await this.service.tag.getAllTags();
   }
+  async getOrgProfileById(){
+    let {orgId} = this.ctx.query;
+    return this.ctx.body = await this.service.org.getOrgProfileById(orgId);
+  }
+  async updateOrg(){
+    let {orgId} = this.ctx.query;
+    let fields = this.ctx.request.body;
+    return this.ctx.body = await this.service.org.update(orgId,fields);
+  }
+  async updateAct(){
+    let fields = this.ctx.request.body;
+    let actId = fields.actId;
+    delete fields.actId;
+    return this.ctx.body = await this.service.activity.update(actId,fields);
+  }
+  async updateApplication(){
+    let {orgId} = this.ctx.query;
+    let {type,id,action} = this.ctx.request.body;
+    let service;
+    switch (type){
+      case '0':service = this.service.org;break;
+      case '1':service = this.service.activity;break;
+      case '2':service = this.service.sponsor;break;
+    }
+    let ret = await service.updateStatus(id,action);
+    return this.ctx.body = ret;
+  }
+  async getActById(){
+    let {actId} = this.ctx.query;
+    let ret = await this.service.activity.getActByIdInAdmin(actId);
+    return this.ctx.body = ret;
+  }
 }
 
 module.exports = AdminController;

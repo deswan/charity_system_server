@@ -25,4 +25,10 @@ module.exports = app => {
   router.get('/api/getTodos', controller.admin.getTodos);
   router.get('/api/getVolList', controller.admin.getVolList);
   router.get('/api/getAllTags', controller.admin.getAllTags);
+  router.get('/api/getOrgProfileById', controller.admin.getOrgProfileById);
+  router.post('/api/updateOrgProfile', controller.admin.updateOrg);
+  router.post('/api/updateActProfile', controller.admin.updateAct);
+  router.post('/api/updateApplication', controller.admin.updateApplication);
+  router.get('/api/getNotice', controller.user.getNotice);
+  router.get('/api/getActByIdInAdmin', controller.admin.getActById);
 };

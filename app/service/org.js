@@ -119,7 +119,7 @@ class OrgService extends Service {
 
     let currentActs = await this.app.mysql.query(`
     select id,name,location,img,
-    DATE_FORMAT(start_time,'%Y-%m-%d') as start_time
+    DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') as start_time
     from activity
     where status in (0,1,2) and 
     organization_id = ?
@@ -173,6 +173,7 @@ class OrgService extends Service {
     org = this.ctx.helper.resultToObject(org, 'tags', ['tagId', 'tagName'])
     return org;
   }
+  //获取组织与用户的关系
   async getOrgUserRelation(orgId, uid) {
     if (!uid) {
       return 'NO_LOGIN'
@@ -204,6 +205,81 @@ class OrgService extends Service {
     organization_id in (?) AND
     status  = 0
     `,[orgId])
+  }
+  //获取组织setting
+  async getOrgProfileById(id) {
+    let org = await this.app.mysql.query(`select
+    organization.name,
+    organization.slogan,
+    organization.logo,
+    group_concat(tag.id) as tagId,
+    group_concat(tag.name) as tagName
+    from organization,organization_tag,tag
+  where organization.id = organization_tag.organization_id AND
+    organization_tag.tag_id = tag.id and
+    organization.id = ?
+  GROUP BY organization.name,
+    organization.slogan,
+    organization.logo`, [id]);
+    
+    if(!org.length){
+      throw new Error('org not exist');
+      return;
+    }
+    org = org[0]
+    
+    org = this.ctx.helper.resultToObject(org, 'tags', ['tagId', 'tagName'])
+    return org;
+  }
+  async update(orgId,fields) {
+    let result;
+    fields.id = orgId;
+    if(!fields.tags){
+      result = await this.app.mysql.update('organization', fields);
+    }else{
+      let tags = fields.tags.split(',');
+      delete fields.tags;
+      await this.app.mysql.update('organization', fields);
+      let promises = [];
+      await this.app.mysql.delete('organization_tag', {
+        organization_id:orgId,
+      });
+      promises = tags.map(id=>{
+        return this.app.mysql.insert('organization_tag', {
+          tag_id:id,
+          organization_id:orgId
+        })
+      })
+      await Promise.all(promises)
+    }
+    return {code:0};
+  }
+  async updateStatus(id,status){
+    await this.app.mysql.update('volunteer_organization',{
+      id, status
+    })
+    return {code:0};
+  }
+  async create(uid,params){
+    let ret = await this.app.mysql.insert('organization',{
+      creater_volunteer_id:uid,
+      create_time:this.app.mysql.literal.now,
+      name:params.name,
+      logo:params.logo,
+      slogan:params.slogan
+    })
+    let tags;
+    if(tags = params.tags){
+      let promises = []
+      tags.split(',').forEach(tagId=>{
+        promises.push(this.app.mysql.insert('organization_tag',{
+          organization_id:ret.insertId,
+          tag_id:tagId
+        }))
+      })
+      await Promise.all(promises)
+    }
+    return {code:0}
   }
 }
 

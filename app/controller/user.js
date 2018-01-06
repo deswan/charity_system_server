@@ -98,7 +98,6 @@ class UserController extends Controller {
   }
   async getUser() {
     let id = this.ctx.session.uid;
-    console.log(id)
     if (!id) {
       return this.ctx.body = { status: 1 } //未登陆
     } else {
@@ -110,7 +109,12 @@ class UserController extends Controller {
       where volunteer_organization.status = 2 and
       volunteer_organization.volunteer_id = ?
       `, [id])
-      return this.ctx.body = { status: 0, data: ret, orgs };
+      let adminOrgs = await this.app.mysql.select('organization',{
+        columns:['id','name','logo'],
+        where:{creater_volunteer_id:id},
+        orders:[['create_time','desc']]
+      })
+      return this.ctx.body = { status: 0, data: ret, orgs,adminOrgs };
     }
   }
   async getMyActs() {
@@ -151,6 +155,24 @@ class UserController extends Controller {
     org = await this.service.org.getOrgById(orgId)
     org.myActs = await this.service.activity.getMyActsByOrg(orgId,uid);
     return this.ctx.body = org;
+  }
+  async getNotice(){
+    let uid = this.ctx.session.uid;
+    if (!uid) {
+      throw new Error('not login');
+      return;
+    }
+    let ret = await this.service.notice.getList(uid);
+    return this.ctx.body = ret;
+  }
+  async createOrg(){
+    let uid = this.ctx.session.id;
+    if (!uid) {
+      throw new Error('not login');
+      return;
+    }
+    let ret = await this.service.org.create(uid,this.ctx.request.body);
+    return this.ctx.body = ret;
   }
 }
 

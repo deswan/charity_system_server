@@ -71,15 +71,14 @@ class ActivityService extends Service {
     let data = await this.app.mysql.query(`
     select
       activity.id,
-      DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
-      DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time,
+      DATE_FORMAT(activity.start_time,'%Y-%m-%d %H:%i:%s') as start_time,
+      DATE_FORMAT(activity.end_time,'%Y-%m-%d %H:%i:%s') as end_time,
       activity.status,
       activity.name,
       activity.img,
-      DATE_FORMAT(activity.create_time,'%Y-%m-%d') as create_time,
+      DATE_FORMAT(activity.create_time,'%Y-%m-%d %H:%i:%s') as create_time,
       activity.location,
       activity.recipient_number,
-      activity.recruit_number,
       organization.id as orgId,
       organization.logo as orgImg,
       organization.name as orgName,
@@ -99,12 +98,23 @@ class ActivityService extends Service {
       activity.create_time,
       activity.location,
       activity.recipient_number,
-      activity.recruit_number,
       organization.id,
       organization.name,
       organization.logo,
       organization.slogan`, [id]);
     data = data[0]
+
+    if (!data) {
+      throw new Error('id not exist');
+      return;
+    }
+
+    let volCount = await this.app.mysql.query(`
+    select count(*) as count
+    from volunteer_activity
+    where activity_id = ? and status = 2
+    `,[id])
+    data.vol_count = volCount[0] && volCount[0].count || 0;
 
     let comments = await this.app.mysql.query(`select
       volunteer.id,
@@ -130,6 +140,25 @@ class ActivityService extends Service {
     data = this.ctx.helper.resultToObject(data, 'tags', ['tagId', 'tagName']);
     return this.ctx.body = data;
   }
+  async getActByIdInAdmin(id) {
+    let act = await this.getActivityById(id);
+    act.volunteers = await this.app.mysql.query(`
+    select volunteer.id,volunteer.name,volunteer.portrait
+    from volunteer,volunteer_activity
+    where activity_id = ? and volunteer_activity.status = 2 and
+      volunteer.id = volunteer_activity.volunteer_id
+    order by volunteer_activity.create_time DESC
+    `, [id])
+    let sponsor = await this.app.mysql.query(`select
+   sum(amount) as amount
+  from sponsor
+  where activity_id = ? AND
+    status = 2
+    group by activity_id
+     `, [id]);
+    act.sponsor_count = sponsor[0] && sponsor[0].amount || 0;
+    return act;
+  }
 
   async getMyActsByStatus({
     uid, page, status, pageSize = 15
@@ -146,8 +175,8 @@ class ActivityService extends Service {
     organization.logo as orgImg,
     GROUP_CONCAT(tag.id) as tagId,
     GROUP_CONCAT(tag.name) as tagName,
-    DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
-    DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time
+    DATE_FORMAT(activity.start_time,'%Y-%m-%d %H:%i:%s') as start_time,
+    DATE_FORMAT(activity.end_time,'%Y-%m-%d %H:%i:%s') as end_time
     
       from activity,organization,tag,activity_tag,volunteer_activity
 
@@ -205,8 +234,8 @@ class ActivityService extends Service {
     organization.logo as orgImg,
     GROUP_CONCAT(tag.id) as tagId,
     GROUP_CONCAT(tag.name) as tagName,
-    DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
-    DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time
+    DATE_FORMAT(activity.start_time,'%Y-%m-%d %H:%i:%s') as start_time,
+    DATE_FORMAT(activity.end_time,'%Y-%m-%d %H:%i:%s') as end_time
     
       from activity,organization,tag,activity_tag,volunteer_activity
 
@@ -253,7 +282,7 @@ class ActivityService extends Service {
   async getActListBelongToOrg({
     orgId, name, startTime, endTime, status, pageSize = 10, page = 1
   }) {
-    if(name){
+    if (name) {
       let nameArr = name.split('');
       nameArr.push('%');
       nameArr.unshift('%');
@@ -270,8 +299,8 @@ class ActivityService extends Service {
     activity.recipient_number,
     GROUP_CONCAT(tag.id) as tagId,
     GROUP_CONCAT(tag.name) as tagName,
-    DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
-    DATE_FORMAT(activity.end_time,'%Y-%m-%d') as end_time,
+    DATE_FORMAT(activity.start_time,'%Y-%m-%d %H:%i:%s') as start_time,
+    DATE_FORMAT(activity.end_time,'%Y-%m-%d %H:%i:%s') as end_time,
     DATE_FORMAT(activity.create_time,'%Y-%m-%d %H:%i:%s') as create_time
     
       from activity,tag,activity_tag
@@ -362,22 +391,22 @@ class ActivityService extends Service {
   //创建活动
   async create({ orgId, avatar, startDate, endDate, location, name, recipient_number, tags }) {
     await this.app.mysql.beginTransactionScope(async conn => {
-      let ret = await conn.insert('activity',{
-        img:avatar,
-        start_time:startDate,
-        end_time:endDate,
+      let ret = await conn.insert('activity', {
+        img: avatar,
+        start_time: startDate,
+        end_time: endDate,
         location,
         name,
         recipient_number,
-        organization_id:orgId,
-        status:0,
-        create_time:this.app.mysql.literals.now
+        organization_id: orgId,
+        status: 0,
+        create_time: this.app.mysql.literals.now
       })
       let promises = []
-      tags.split(',').forEach(tagId=>{
-        promises.push(this.app.mysql.insert('activity_tag',{
-          activity_id:ret.insertId,
-          tag_id:tagId
+      tags.split(',').forEach(tagId => {
+        promises.push(this.app.mysql.insert('activity_tag', {
+          activity_id: ret.insertId,
+          tag_id: tagId
         }))
       })
       await Promise.all(promises)
@@ -401,6 +430,35 @@ class ActivityService extends Service {
     volunteer.id = volunteer_activity.volunteer_id AND
     activity.organization_id = ? AND
     volunteer_activity.status  = 0`, [orgId])
+  }
+  async updateStatus(id, status) {
+    await this.app.mysql.update('volunteer_activity', {
+      id, status
+    })
+    return { code: 0 };
+  }
+  async update(id,fields) {
+    let result;
+    fields.id = id;
+    if(!fields.tags){
+      result = await this.app.mysql.update('activity', fields);
+    }else{
+      let tags = fields.tags.split(',');
+      delete fields.tags;
+      await this.app.mysql.update('activity', fields);
+      let promises = [];
+      await this.app.mysql.delete('activity_tag', {
+        activity_id:id,
+      });
+      promises = tags.map(id=>{
+        return this.app.mysql.insert('activity_tag', {
+          tag_id:id,
+          activity_id:id
+        })
+      })
+      await Promise.all(promises)
+    }
+    return {code:0};
   }
 }
 

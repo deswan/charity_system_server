@@ -46,7 +46,11 @@ class HomeController extends Controller {
     } 
     let result = await this.service.org.getOrgById(id);
     result.userStatus = await this.service.org.getOrgUserRelation(id,this.ctx.session.id);
-
+    return this.ctx.body = result;
+  }
+  async sponsor(){
+    let { actId } = this.ctx.query;
+    let result = await this.service.sponsor.create(actId,this.ctx.request.body);
     return this.ctx.body = result;
   }
 }

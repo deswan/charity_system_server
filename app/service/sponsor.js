@@ -19,6 +19,23 @@ class SponsorService extends Service {
     sponsor.status  = 0
     `,[orgId])
   }
+  async updateStatus(id,status){
+    await this.app.mysql.update('sponsor',{
+      id, status
+    })
+    return {code:0};
+  }
+  async create(actId,params){
+    await this.app.mysql.insert('sponsor',{
+      activity_id:actId,
+      create_time:this.app.mysql.literal.now,
+      amount:params.amount,
+      phone:params.phone,
+      logo:params.logo,
+      status:0
+    })
+    return {code:0}
+  }
 }
 
 module.exports = SponsorService;
