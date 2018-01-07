@@ -113,7 +113,7 @@ class ActivityService extends Service {
     select count(*) as count
     from volunteer_activity
     where activity_id = ? and status = 2
-    `,[id])
+    `, [id])
     data.vol_count = volCount[0] && volCount[0].count || 0;
 
     let comments = await this.app.mysql.query(`select
@@ -131,7 +131,7 @@ class ActivityService extends Service {
     data.comments = comments;
 
     let sponsors = await this.app.mysql.select('sponsor', {
-      where: { status: 2 }, // WHERE 条件
+      where: { status: 2, activity_id: id }, // WHERE 条件
       columns: ['name', 'amount', 'logo'], // 要查询的表字段
       orders: [['create_time', 'desc']],
     })
@@ -431,34 +431,158 @@ class ActivityService extends Service {
     activity.organization_id = ? AND
     volunteer_activity.status  = 0`, [orgId])
   }
+  //更新申请状态
   async updateStatus(id, status) {
+    let v_a = await this.app.mysql.get('volunteer_activity', { id })
+    if (!v_a) {
+      throw new Error('id not exist');
+      return;
+    }
+    let actId = v_a.activity_id;
+    let act = await this.app.mysql.get('activity', { id: actId })
+    if (act.status !== 0) {
+      throw new Error('活动状态已变为 ' + this.ctx.headers.getActStatusText(act.status) + ' ，无法操作申请');
+      return;
+    }
+
+    //todo:validate apply status
+
     await this.app.mysql.update('volunteer_activity', {
       id, status
     })
+
+    await this.app.mysql.insert('notice', {
+      target_name:act.name,
+      target_type:1,
+      type:1,
+      statusText:status == 2 ? '接收' : '拒绝',
+      volunteer_id:v_a.volunteer_id,
+      create_time:this.app.mysql.literals.now
+    })
     return { code: 0 };
   }
-  async update(id,fields) {
+  //更新活动状态
+  async updateActStauts(id, status) {
+    let act = await this.app.mysql.get('activity', { id })
+    if (!act) {
+      throw new Error('id not exist');
+      return;
+    }
+    await this.app.mysql.update('activity', {
+      id, status
+    })
+    let vols = await this.app.mysql.select('volunteer_activity',{
+      columns:['volunteer_id'],
+      where:{activity_id:id}
+    })
+    let tasks = [];
+    vols.forEach(vol=>{
+      tasks.push(this.app.mysql.insert('notice', {
+        target_name:act.name,
+        type:0,
+        statusText:this.ctx.headers.getActStatusText(status),
+        volunteer_id:vol.volunteer_id,
+        create_time:this.app.mysql.literals.now
+      }))
+    })
+    await Promise.all(tasks);
+    return { code: 0 };
+  }
+  //更新活动profile
+  async update(id, fields) {
     let result;
     fields.id = id;
-    if(!fields.tags){
+
+    if (!fields.tags) {
       result = await this.app.mysql.update('activity', fields);
-    }else{
+    } else {
       let tags = fields.tags.split(',');
       delete fields.tags;
       await this.app.mysql.update('activity', fields);
       let promises = [];
       await this.app.mysql.delete('activity_tag', {
-        activity_id:id,
+        activity_id: id,
       });
-      promises = tags.map(id=>{
+      promises = tags.map(id => {
         return this.app.mysql.insert('activity_tag', {
-          tag_id:id,
-          activity_id:id
+          tag_id: id,
+          activity_id: id
         })
       })
       await Promise.all(promises)
     }
-    return {code:0};
+    return { code: 0 };
+  }
+  //获取活动与用户的关系
+  async getUserRelation(actId, uid) {
+    if (!uid) {
+      return 'NOT_LOGIN'
+    }
+    let orgRet = await this.app.mysql.query(`
+      select activity.id
+    from volunteer_organization,activity
+where activity.organization_id = volunteer_organization.organization_id AND
+    activity.id = ? AND volunteer_id = ? AND volunteer_organization.status = 2
+      `, [actId, uid])
+    if (!orgRet.length) {
+      return 'NOT_ORG'
+    }
+    let actRet = await this.app.mysql.query(`
+      select id
+    from volunteer_activity
+where activity_id = ? AND volunteer_id = ? AND status = 2
+      `, [actId, uid])
+    if (!actRet.length) {
+      return 'NOT_JOIN'
+    }
+    return 'JOINED';
+  }
+  async apply(actId, uid, text) {
+    let ret = await this.app.mysql.get('volunteer_activity', {
+      volunteer_id: uid,
+      activity_id: actId
+    })
+    if (ret) {
+      throw new Error('您已申请该活动');
+      return;
+    }
+    let actRet = await this.app.mysql.get('activity', {
+      activity_id: actId
+    })
+    if (!actRet) {
+      throw new Error('id not exist');
+      return;
+    }
+    if (actRet.status !== 0) {
+      throw new Error('活动状态有误');
+      return;
+    }
+    let insertRet = await this.app.mysql.insert('volunteer_activity', {
+      volunteer_id: uid,
+      activity_id: actId,
+      status: 0,
+      application_text: text,
+      create_time: this.app.mysql.literals.now
+    })
+    if (insertRet.affectedRows !== 1) {
+      return { code: 1 }
+    }
+    return { code: 0 }
+  }
+  async cancel(id) {
+    let ret = await this.app.mysql.get('activity', { id })
+    if (!ret) {
+      throw new Error('id not exist');
+      return;
+    }
+    if (ret.status === 3 || ret.status === 4) {
+      throw new Error('活动状态错误');
+      return;
+    }
+    await this.app.mysql.update('activity', {
+      id, status: 4
+    })
+    return { code: 0 };
   }
 }
 

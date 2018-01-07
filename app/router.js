@@ -5,6 +5,7 @@
  */
 module.exports = app => {
   const { router, controller } = app;
+  const adminauth = app.middlewares.adminauth({},app);
   router.get('/api/getActList', controller.home.getActList);
   router.get('/api/getCurrentActTags', controller.home.getCurrentActTags);
   router.get('/api/getActReviewList', controller.home.getActReviewList);
@@ -20,7 +21,7 @@ module.exports = app => {
   router.get('/api/getMyActs', controller.user.getMyActs);
   router.get('/api/getMyOrgById', controller.user.getMyOrgById);
   
-  router.get('/api/getActListBelongToOrg', controller.admin.getActListBelongToOrg);
+  router.get('/api/getActListBelongToOrg',adminauth, controller.admin.getActListBelongToOrg);
   router.post('/api/createAct', controller.admin.createAct);
   router.get('/api/getTodos', controller.admin.getTodos);
   router.get('/api/getVolList', controller.admin.getVolList);
@@ -30,5 +31,9 @@ module.exports = app => {
   router.post('/api/updateActProfile', controller.admin.updateAct);
   router.post('/api/updateApplication', controller.admin.updateApplication);
   router.get('/api/getNotice', controller.user.getNotice);
+  router.post('/api/applyAct', controller.user.applyAct);
   router.get('/api/getActByIdInAdmin', controller.admin.getActById);
+  router.post('/api/quitAct', controller.user.quitAct);
+  router.post('/api/cancelAct', adminauth,controller.admin.cancelAct);
+  router.post('/api/sponsor', controller.home.sponsor);
 };

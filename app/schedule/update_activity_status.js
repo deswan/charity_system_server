@@ -23,14 +23,14 @@ class UpdateActivityStatus extends Subscription {
         let tasks = []
         res.forEach(row => {
             if (moment().isSameOrAfter(row.end_time)) {
-                this.app.logger(`update_activity:${row.id}-3`)
-                tasks.push(this.service.activity.updateStatus(row.id, 3))
+                this.app.logger.info(`update_activity:${row.id}-3`)
+                tasks.push(this.service.activity.updateActStauts(row.id, 3))
             } else if (moment().isSameOrAfter(row.start_time)) {
-                this.app.logger(`update_activity:${row.id}-2`)
-                tasks.push(this.service.activity.updateStatus(row.id, 2))
+                this.app.logger.info(`update_activity:${row.id}-2`)
+                tasks.push(this.service.activity.updateActStauts(row.id, 2))
             } else if (moment().isSameOrAfter(moment(row.start_time).subtract(1, 'days'))) {
-                this.app.logger(`update_activity:${row.id}-1`)
-                tasks.push(this.service.activity.updateStatus(row.id, 1))
+                this.app.logger.info(`update_activity:${row.id}-1`)
+                tasks.push(this.service.activity.updateActStauts(row.id, 1))
             }
         })
         return await Promise.all(tasks);

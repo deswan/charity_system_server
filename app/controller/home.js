@@ -37,6 +37,7 @@ class HomeController extends Controller {
       throw new Error('id is required');
     }
     let result = await this.service.activity.getActivityById(id);
+    result.userStatus = await this.service.activity.getUserRelation(id,this.ctx.session.id);
     return this.ctx.body = result;
   }
   async getOrgById() {
@@ -49,7 +50,7 @@ class HomeController extends Controller {
     return this.ctx.body = result;
   }
   async sponsor(){
-    let { actId } = this.ctx.query;
+    let { actId } = this.ctx.request.body;
     let result = await this.service.sponsor.create(actId,this.ctx.request.body);
     return this.ctx.body = result;
   }

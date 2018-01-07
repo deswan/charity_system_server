@@ -166,13 +166,33 @@ class UserController extends Controller {
     return this.ctx.body = ret;
   }
   async createOrg(){
-    let uid = this.ctx.session.id;
+    let uid = this.ctx.session.uid;
     if (!uid) {
       throw new Error('not login');
       return;
     }
     let ret = await this.service.org.create(uid,this.ctx.request.body);
     return this.ctx.body = ret;
+  }
+  async applyAct(){
+    let { actId,text } = this.ctx.request.body;
+    let uid = this.ctx.session.uid;
+    if (!uid) {
+      throw new Error('not login');
+      return;
+    }
+    let result = await this.service.activity.apply(actId,this.ctx.session.uid,text);
+    return this.ctx.body = result;
+  }
+  async quitAct(){
+    let { actId } = this.ctx.request.body;
+    let uid = this.ctx.session.uid;
+    if (!uid) {
+      throw new Error('not login');
+      return;
+    }
+    let result = await this.service.volunteer.quitAct(actId,this.ctx.session.uid);
+    return this.ctx.body = result;
   }
 }
 

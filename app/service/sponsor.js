@@ -28,7 +28,8 @@ class SponsorService extends Service {
   async create(actId,params){
     await this.app.mysql.insert('sponsor',{
       activity_id:actId,
-      create_time:this.app.mysql.literal.now,
+      create_time:this.app.mysql.literals.now,
+      name:params.name,
       amount:params.amount,
       phone:params.phone,
       logo:params.logo,

@@ -105,9 +105,9 @@ class AdminController extends Controller {
     let {type,id,action} = this.ctx.request.body;
     let service;
     switch (type){
-      case '0':service = this.service.org;break;
-      case '1':service = this.service.activity;break;
-      case '2':service = this.service.sponsor;break;
+      case 0:service = this.service.org;break;
+      case 1:service = this.service.activity;break;
+      case 2:service = this.service.sponsor;break;
     }
     let ret = await service.updateStatus(id,action);
     return this.ctx.body = ret;
@@ -115,6 +115,12 @@ class AdminController extends Controller {
   async getActById(){
     let {actId} = this.ctx.query;
     let ret = await this.service.activity.getActByIdInAdmin(actId);
+    return this.ctx.body = ret;
+  }
+  async cancelAct(){
+    let {actId} = this.ctx.request.body;
+    //validate orgId-uid  && orgId-actId
+    let ret = await this.service.activity.cancel(actId);
     return this.ctx.body = ret;
   }
 }

@@ -176,7 +176,7 @@ class OrgService extends Service {
   //获取组织与用户的关系
   async getOrgUserRelation(orgId, uid) {
     if (!uid) {
-      return 'NO_LOGIN'
+      return 'NOT_LOGIN'
     } else {
       let ret = await this.app.mysql.get('volunteer_organization', {
         volunteer_id: uid,
@@ -186,7 +186,7 @@ class OrgService extends Service {
       if (ret) {
         return 'JOINED'
       } else {
-        return 'NO_JOIN'
+        return 'NOT_JOIN'
       }
     }
   }
@@ -263,7 +263,7 @@ class OrgService extends Service {
   async create(uid,params){
     let ret = await this.app.mysql.insert('organization',{
       creater_volunteer_id:uid,
-      create_time:this.app.mysql.literal.now,
+      create_time:this.app.mysql.literals.now,
       name:params.name,
       logo:params.logo,
       slogan:params.slogan

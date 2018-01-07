@@ -7,7 +7,6 @@ module.exports = appInfo => {
   config.keys = appInfo.name + '_1513520319299_3369';
 
   // add your config here
-  config.middleware = [];
   config.mysql = {
     client: {
       // host
@@ -28,6 +27,5 @@ module.exports = appInfo => {
         // headerName: 'x-csrf-token', // 通过 header 传递 CSRF token 的默认字段为 x-csrf-token
       },
   }
-
   return config;
 };

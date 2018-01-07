@@ -25,9 +25,9 @@ class VolunteerService extends Service {
     result.rows = rows
     return result;
   }
-  async getListByOrg({ orgId,name,pageSize = 10,page = 1 }) {
+  async getListByOrg({ orgId, name, pageSize = 10, page = 1 }) {
     let result = {};
-    if(name){
+    if (name) {
       let nameArr = name.split('');
       nameArr.push('%');
       nameArr.unshift('%');
@@ -45,10 +45,10 @@ class VolunteerService extends Service {
       ${name ? `and volunteer.name like ${this.app.mysql.escape(name)}` : ''}
       ORDER BY volunteer_organization.join_time DESC 
       limit ? offset ?
-     `,[orgId,pageSize, pageSize * (page - 1)]);
+     `, [orgId, pageSize, pageSize * (page - 1)]);
 
     if (rows.length) {
-      let volsId = rows.map(item=>{
+      let volsId = rows.map(item => {
         return item.id;
       })
       let actsData = await this.app.mysql.query(`select
@@ -59,11 +59,11 @@ class VolunteerService extends Service {
       activity.organization_id = ? AND
       volunteer_activity.activity_id = activity.id
     GROUP BY volunteer_activity.volunteer_id
-       `,[volsId,orgId]);
+       `, [volsId, orgId]);
 
-       rows.forEach(item => {
-        actsData.forEach(act=>{
-          if(item.id === act.id){
+      rows.forEach(item => {
+        actsData.forEach(act => {
+          if (item.id === act.id) {
             item.act_count = act.act_count || 0;
           }
         })
@@ -74,12 +74,29 @@ class VolunteerService extends Service {
       count(*) as total
       from volunteer_organization
       where organization_id = ? and status = 2
-     `,[orgId]);
+     `, [orgId]);
     total = total[0].total;
     result.total = total;
 
     result.rows = rows
     return result;
+  }
+  async quitAct(actId, uid) {
+    let ret = await this.app.mysql.get('activity', { id:actId })
+    if(!ret){
+      throw new Error('id not exist');
+      return;
+    }
+    if(ret.status !== 0 ){
+      throw new Error('活动状态错误');
+      return;
+    }
+    const result = await this.app.mysql.delete('volunteer_activity', {
+      activity_id: actId,
+      volunteer_id: uid
+    });
+    this.ctx.logger.info(`actId:${actId},uid:${uid},ret:${result}`)
+    return {code:0}
   }
 }
 
