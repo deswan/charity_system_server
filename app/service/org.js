@@ -141,7 +141,7 @@ class OrgService extends Service {
     limit 10
     `, [id])
 
-    if (previousActs) {
+    if (previousActs.length) {
       let actIds = previousActs.map(item => {
         return item.id;
       })
@@ -279,7 +279,7 @@ class OrgService extends Service {
       })
       await Promise.all(promises)
     }
-    return {code:0}
+    return {code:0,orgId:ret.insertId}
   }
 }
 

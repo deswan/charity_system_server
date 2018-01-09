@@ -26,7 +26,7 @@ class UpdateActivityStatus extends Subscription {
                 this.app.logger.info(`update_activity:${row.id}-3`)
                 tasks.push(this.service.activity.updateActStauts(row.id, 3))
             } else if (moment().isSameOrAfter(row.start_time)) {
-                this.app.logger.info(`update_activity:${row.id}-2`)
+                this.app.logger.info(`${moment().format('YYYY-MM-DD H:m:s')}:update_activity:${row.id}-2`)
                 tasks.push(this.service.activity.updateActStauts(row.id, 2))
             } else if (moment().isSameOrAfter(moment(row.start_time).subtract(1, 'days'))) {
                 this.app.logger.info(`update_activity:${row.id}-1`)

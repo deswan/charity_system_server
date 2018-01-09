@@ -36,4 +36,7 @@ module.exports = app => {
   router.post('/api/quitAct', controller.user.quitAct);
   router.post('/api/cancelAct', adminauth,controller.admin.cancelAct);
   router.post('/api/sponsor', controller.home.sponsor);
+  router.post('/api/score', controller.user.score);
+  router.get('/api/logout', controller.user.logout);
+  router.post('/api/createOrg', controller.user.createOrg);
 };

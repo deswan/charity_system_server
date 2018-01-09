@@ -194,6 +194,15 @@ class UserController extends Controller {
     let result = await this.service.volunteer.quitAct(actId,this.ctx.session.uid);
     return this.ctx.body = result;
   }
+  async score(){
+    let uid = this.ctx.session.uid;
+    let result = await this.service.activity.score(uid,this.ctx.request.body);
+    return this.ctx.body = result;
+  }
+  async logout(){
+    this.ctx.session.uid = null;
+    return this.ctx.body = {code:0};
+  }
 }
 
 module.exports = UserController;

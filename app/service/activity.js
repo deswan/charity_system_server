@@ -173,6 +173,7 @@ class ActivityService extends Service {
     organization.id as orgId,
     organization.name as orgName,
     organization.logo as orgImg,
+    volunteer_activity.isScored+0 as isScored,
     GROUP_CONCAT(tag.id) as tagId,
     GROUP_CONCAT(tag.name) as tagName,
     DATE_FORMAT(activity.start_time,'%Y-%m-%d %H:%i:%s') as start_time,
@@ -198,7 +199,8 @@ class ActivityService extends Service {
       activity.end_time,
       activity.location,
       activity.status,
-      activity.img
+      activity.img,
+      volunteer_activity.isScored
       
       ORDER BY activity.start_time DESC
       limit ? offset ?
@@ -480,7 +482,7 @@ class ActivityService extends Service {
       tasks.push(this.app.mysql.insert('notice', {
         target_name:act.name,
         type:0,
-        statusText:this.ctx.headers.getActStatusText(status),
+        statusText:this.ctx.helper.getActStatusText(status),
         volunteer_id:vol.volunteer_id,
         create_time:this.app.mysql.literals.now
       }))
@@ -489,9 +491,9 @@ class ActivityService extends Service {
     return { code: 0 };
   }
   //更新活动profile
-  async update(id, fields) {
+  async update(actId, fields) {
     let result;
-    fields.id = id;
+    fields.id = actId;
 
     if (!fields.tags) {
       result = await this.app.mysql.update('activity', fields);
@@ -501,12 +503,12 @@ class ActivityService extends Service {
       await this.app.mysql.update('activity', fields);
       let promises = [];
       await this.app.mysql.delete('activity_tag', {
-        activity_id: id,
+        activity_id: actId,
       });
       promises = tags.map(id => {
         return this.app.mysql.insert('activity_tag', {
           tag_id: id,
-          activity_id: id
+          activity_id: actId
         })
       })
       await Promise.all(promises)
@@ -583,6 +585,18 @@ where activity_id = ? AND volunteer_id = ? AND status = 2
       id, status: 4
     })
     return { code: 0 };
+  }
+  async score(uid,params){
+    let ret = await this.app.mysql.insert('volunteer_activity', {
+      volunteer_id:uid,
+      activity_id:params.actId,
+      score:params.score,
+      comment:params.comment,
+      photos:params.photos,
+      isScored:1,
+      score_time: this.app.mysql.literals.now
+    })
+    return {code:0}
   }
 }
 
