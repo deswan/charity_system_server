@@ -33,7 +33,7 @@ class ActivityService extends Service {
       DATE_FORMAT(activity.start_time,'%Y-%m-%d') as start_time,
       activity.location,activity.status,activity.img
         from activity,organization,tag,activity_tag
-        where status in (0,1) and
+        where status = 0 and
         ${tagActivityId.length ? `activity.id in (${tagActivityId}) and` : ''}
         activity.organization_id = organization.id and
         activity.id = activity_tag.activity_id and
@@ -52,7 +52,7 @@ class ActivityService extends Service {
        count(*) as total
        from activity
        where ${tagActivityId.length ? `activity.id in (${tagActivityId}) and` : ''}
-      status in (0,1) 
+      status = 0
        `);
     total = total[0].total;
     results.total = total;
@@ -453,7 +453,7 @@ class ActivityService extends Service {
       id, status
     })
 
-    await this.app.mysql.insert('notice', {
+    let insertRet =  await this.app.mysql.insert('notice', {
       target_name:act.name,
       target_type:1,
       type:1,
@@ -461,6 +461,7 @@ class ActivityService extends Service {
       volunteer_id:v_a.volunteer_id,
       create_time:this.app.mysql.literals.now
     })
+    this.ctx.logger.info(insertRet)
     return { code: 0 };
   }
   //更新活动状态
@@ -549,7 +550,7 @@ where activity_id = ? AND volunteer_id = ? AND status = 2
       return;
     }
     let actRet = await this.app.mysql.get('activity', {
-      activity_id: actId
+      id: actId
     })
     if (!actRet) {
       throw new Error('id not exist');
@@ -587,9 +588,12 @@ where activity_id = ? AND volunteer_id = ? AND status = 2
     return { code: 0 };
   }
   async score(uid,params){
-    let ret = await this.app.mysql.insert('volunteer_activity', {
+    let r = await this.app.mysql.get('volunteer_activity', {
       volunteer_id:uid,
-      activity_id:params.actId,
+      activity_id:params.actId
+    })
+    let ret = await this.app.mysql.update('volunteer_activity', {
+      id:r.id,
       score:params.score,
       comment:params.comment,
       photos:params.photos,

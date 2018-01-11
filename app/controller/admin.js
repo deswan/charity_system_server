@@ -6,13 +6,11 @@ const crypto = require('crypto');
 class AdminController extends Controller {
   async getActListBelongToOrg() {
     let {orgId,name,startTime,endTime,status,page} = this.ctx.query;
-    //todo:uid检查
     let ret = await this.service.activity.getActListBelongToOrg({orgId,name,startTime,endTime,status,page});
     return this.ctx.body = ret;
   }
   async createAct() {
     let {orgId,avatar,startDate,endDate,location,name,recipient_number,tags} = this.ctx.request.body;
-    //todo:uid检查
     let ret = await this.service.activity.create({orgId,avatar,startDate,endDate,location,name,recipient_number,tags});
     return this.ctx.body = {code:0};
   }
@@ -92,16 +90,17 @@ class AdminController extends Controller {
   async updateOrg(){
     let {orgId} = this.ctx.query;
     let fields = this.ctx.request.body;
+    delete fields.orgId
     return this.ctx.body = await this.service.org.update(orgId,fields);
   }
   async updateAct(){
     let fields = this.ctx.request.body;
     let actId = fields.actId;
     delete fields.actId;
+    delete fields.orgId;
     return this.ctx.body = await this.service.activity.update(actId,fields);
   }
   async updateApplication(){
-    let {orgId} = this.ctx.query;
     let {type,id,action} = this.ctx.request.body;
     let service;
     switch (type){
@@ -119,7 +118,7 @@ class AdminController extends Controller {
   }
   async cancelAct(){
     let {actId} = this.ctx.request.body;
-    //validate orgId-uid  && orgId-actId
+    //validate orgId-actId
     let ret = await this.service.activity.cancel(actId);
     return this.ctx.body = ret;
   }

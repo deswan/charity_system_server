@@ -6,7 +6,7 @@ class TagService extends Service {
         distinct tag.id,tag.name
         from activity inner join activity_tag on activity_tag.activity_id = activity.id
         inner join tag on activity_tag.tag_id = tag.id
-        where activity.status in (0,1)
+        where activity.status = 0
        `);
     }
     async getOrg() {

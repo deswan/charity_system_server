@@ -41,11 +41,7 @@ class UserController extends Controller {
         gender: {
           require: true,
           type: 'enum',
-          values: ['0', '1']
-        },
-        native: {
-          require: true,
-          type: 'string',
+          values: [0, 1]
         },
         id_card: {
           require: true,
@@ -121,10 +117,6 @@ class UserController extends Controller {
     let uid = this.ctx.session.uid;
     let { page, status, name, start_time, end_time } = this.ctx.query;
     !page && (page = 1);
-    if (!uid) {
-      throw new Error('not login');
-      return;
-    }
     let acts;
     if (name || start_time || end_time) {
 
@@ -147,10 +139,6 @@ class UserController extends Controller {
     if (!orgId) {
       throw new Error('orgId is required')
     }
-    if (!uid) {
-      throw new Error('not login');
-      return;
-    }
     let org;
     org = await this.service.org.getOrgById(orgId)
     org.myActs = await this.service.activity.getMyActsByOrg(orgId,uid);
@@ -158,39 +146,29 @@ class UserController extends Controller {
   }
   async getNotice(){
     let uid = this.ctx.session.uid;
-    if (!uid) {
-      throw new Error('not login');
-      return;
-    }
     let ret = await this.service.notice.getList(uid);
     return this.ctx.body = ret;
   }
   async createOrg(){
     let uid = this.ctx.session.uid;
-    if (!uid) {
-      throw new Error('not login');
-      return;
-    }
     let ret = await this.service.org.create(uid,this.ctx.request.body);
     return this.ctx.body = ret;
   }
   async applyAct(){
     let { actId,text } = this.ctx.request.body;
     let uid = this.ctx.session.uid;
-    if (!uid) {
-      throw new Error('not login');
-      return;
-    }
     let result = await this.service.activity.apply(actId,this.ctx.session.uid,text);
+    return this.ctx.body = result;
+  }
+  async applyOrg(){
+    let { orgId,text } = this.ctx.request.body;
+    let uid = this.ctx.session.uid;
+    let result = await this.service.org.apply(orgId,this.ctx.session.uid,text);
     return this.ctx.body = result;
   }
   async quitAct(){
     let { actId } = this.ctx.request.body;
     let uid = this.ctx.session.uid;
-    if (!uid) {
-      throw new Error('not login');
-      return;
-    }
     let result = await this.service.volunteer.quitAct(actId,this.ctx.session.uid);
     return this.ctx.body = result;
   }

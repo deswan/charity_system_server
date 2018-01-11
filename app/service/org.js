@@ -193,7 +193,7 @@ class OrgService extends Service {
   async getApplingByOrg(orgId) {
     return await this.app.mysql.query(`
     select
-    volunteer_organization.organization_id as item_id,
+    volunteer_organization.id as item_id,
     DATE_FORMAT(volunteer_organization.create_time,'%Y-%m-%d %H:%i:%s') as create_time,
     volunteer.id,
     volunteer.name,
@@ -204,7 +204,7 @@ class OrgService extends Service {
   where volunteer_organization.volunteer_id = volunteer.id AND 
     organization_id in (?) AND
     status  = 0
-    `,[orgId])
+    `, [orgId])
   }
   //获取组织setting
   async getOrgProfileById(id) {
@@ -221,65 +221,113 @@ class OrgService extends Service {
   GROUP BY organization.name,
     organization.slogan,
     organization.logo`, [id]);
-    
-    if(!org.length){
+
+    if (!org.length) {
       throw new Error('org not exist');
       return;
     }
     org = org[0]
-    
+
     org = this.ctx.helper.resultToObject(org, 'tags', ['tagId', 'tagName'])
     return org;
   }
-  async update(orgId,fields) {
+  async update(orgId, fields) {
     let result;
-    fields.id = orgId;
-    if(!fields.tags){
-      result = await this.app.mysql.update('organization', fields);
-    }else{
+    if (fields.tags) {
       let tags = fields.tags.split(',');
       delete fields.tags;
-      await this.app.mysql.update('organization', fields);
-      let promises = [];
       await this.app.mysql.delete('organization_tag', {
-        organization_id:orgId,
+        organization_id: orgId,
       });
-      promises = tags.map(id=>{
+      let promises = [];
+      promises = tags.map(id => {
         return this.app.mysql.insert('organization_tag', {
-          tag_id:id,
-          organization_id:orgId
+          tag_id: id,
+          organization_id: orgId
         })
       })
       await Promise.all(promises)
     }
-    return {code:0};
+    if (Object.keys(fields).length) {
+      fields.id = orgId;
+      result = await this.app.mysql.update('organization', fields);
+    }
+    return { code: 0 };
   }
-  async updateStatus(id,status){
-    await this.app.mysql.update('volunteer_organization',{
+  async updateStatus(id, status) {
+    let v_o = await this.app.mysql.get('volunteer_organization', { id })
+    if (!v_o) {
+      throw new Error('item_id not exist');
+      return;
+    }
+    await this.app.mysql.update('volunteer_organization', {
       id, status
     })
-    return {code:0};
+    
+    //todo:validate apply status
+
+    let org = await this.app.mysql.get('organization', {
+      id: v_o.organization_id
+    })
+
+    let insertRet = await this.app.mysql.insert('notice', {
+      target_name: org.name,
+      target_type: 0,
+      type: 1,
+      statusText: status == 2 ? '接受' : '拒绝',
+      volunteer_id: v_o.volunteer_id,
+      create_time: this.app.mysql.literals.now
+    })
+    return { code: 0 };
   }
-  async create(uid,params){
-    let ret = await this.app.mysql.insert('organization',{
-      creater_volunteer_id:uid,
-      create_time:this.app.mysql.literals.now,
-      name:params.name,
-      logo:params.logo,
-      slogan:params.slogan
+  async create(uid, params) {
+    let ret = await this.app.mysql.insert('organization', {
+      creater_volunteer_id: uid,
+      create_time: this.app.mysql.literals.now,
+      name: params.name,
+      logo: params.logo,
+      slogan: params.slogan
     })
     let tags;
-    if(tags = params.tags){
+    if (tags = params.tags) {
       let promises = []
-      tags.split(',').forEach(tagId=>{
-        promises.push(this.app.mysql.insert('organization_tag',{
-          organization_id:ret.insertId,
-          tag_id:tagId
+      tags.split(',').forEach(tagId => {
+        promises.push(this.app.mysql.insert('organization_tag', {
+          organization_id: ret.insertId,
+          tag_id: tagId
         }))
       })
       await Promise.all(promises)
     }
-    return {code:0,orgId:ret.insertId}
+    return { code: 0, orgId: ret.insertId }
+  }
+  async apply(orgId, uid, text) {
+    let ret = await this.app.mysql.get('volunteer_organization', {
+      volunteer_id: uid,
+      organization_id: orgId
+    })
+    if (ret) {
+      throw new Error('您已申请该组织');
+      return;
+    }
+    let orgRet = await this.app.mysql.get('organization', {
+      id: orgId
+    })
+    if (!orgRet) {
+      throw new Error('id not exist');
+      return;
+    }
+    let insertRet = await this.app.mysql.insert('volunteer_organization', {
+      volunteer_id: uid,
+      organization_id: orgId,
+      status: 0,
+      application_text: text,
+      create_time: this.app.mysql.literals.now
+    })
+    if (insertRet.affectedRows !== 1) {
+      return { code: 1 }
+    }
+    return { code: 0 }
   }
 }
 

@@ -1,5 +1,5 @@
 module.exports = (options, app) => {
-    return async function user_auth(ctx, next) {
+    return async function userauth(ctx, next) {
         let uid = ctx.session.uid;
         if (!uid) {
             throw new Error('not auth')

@@ -37,7 +37,7 @@ class HomeController extends Controller {
       throw new Error('id is required');
     }
     let result = await this.service.activity.getActivityById(id);
-    result.userStatus = await this.service.activity.getUserRelation(id,this.ctx.session.id);
+    result.userStatus = await this.service.activity.getUserRelation(id,this.ctx.session.uid);
     return this.ctx.body = result;
   }
   async getOrgById() {
@@ -46,7 +46,7 @@ class HomeController extends Controller {
       throw new Error('id is required');
     } 
     let result = await this.service.org.getOrgById(id);
-    result.userStatus = await this.service.org.getOrgUserRelation(id,this.ctx.session.id);
+    result.userStatus = await this.service.org.getOrgUserRelation(id,this.ctx.session.uid);
     return this.ctx.body = result;
   }
   async sponsor(){
